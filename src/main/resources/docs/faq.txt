@@ -1,0 +1,16 @@
+Spring AI 14 天系列 · 示例知识库
+
+Q: Spring AI 2.0 相比 1.x 有什么变化？
+A: 最大的变化是模块化重构，项目拆分成 spring-ai-commons、spring-ai-model、spring-ai-client-chat、spring-ai-vector-store、spring-ai-rag 等独立模块，按需引入依赖。同时 starter 命名统一为 spring-ai-starter-model-<厂商> 的形式。注意 2.0 当前是里程碑预览版，生产环境可先用 1.1.x GA 稳定版。
+
+Q: ChatClient 和 ChatModel 有什么区别？
+A: ChatModel 是底层接口，直接 call(Prompt)；ChatClient 是高层 fluent 门面，封装了 ChatModel，额外提供 Prompt 模板、Advisor 链、结构化输出、流式输出等能力。日常开发首选 ChatClient。
+
+Q: 本示例商城的退货政策是几天？
+A: 本示例知识库规定，商品支持 7 天无理由退货，生鲜类与定制类商品除外。退货运费由买家承担，质量问题除外。
+
+Q: 什么是 RAG？
+A: RAG 即检索增强生成，分检索、增强、生成三步：先从向量库找出与问题相关的文档片段，再把片段拼进 prompt 作为上下文，最后由模型基于上下文生成答案。它能缓解大模型的幻觉和知识过期问题。
+
+Q: Spring AI 支持哪些大模型？
+A: Spring AI 支持 OpenAI、DeepSeek、Anthropic、通义千问、智谱、MiniMax、月之暗面、Ollama 本地模型等众多提供商。切换模型通常只需更换 starter 并调整配置，调用代码无需改动。
