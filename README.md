@@ -4,6 +4,8 @@
 
 基于 **Spring AI 2.0-M6** + Spring Boot 3.4 + DeepSeek，从第一个对话一路搭到带记忆、RAG、工具调用的完整 AI 应用。
 
+> ✅ 已在 JDK 21 + Maven 3.9.9 下 `mvn compile` 验证编译通过（Spring AI 2.0.0-M6）。
+
 ---
 
 ## 技术栈

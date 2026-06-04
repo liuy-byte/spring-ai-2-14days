@@ -52,7 +52,7 @@ public class ChatClientController {
     @GetMapping("/options")
     public String options(@RequestParam(defaultValue = "写一个线程安全的单例") String message) {
         return chatClient.prompt().user(message)
-                .options(ChatOptions.builder().temperature(0.2).build())
+                .options(ChatOptions.builder().temperature(0.2))
                 .call().content();
     }
 }
