@@ -2,9 +2,9 @@
 
 公众号「**技术洋的编程笔记**」**Spring AI 2.x 14 天系列**的配套可运行项目。
 
-基于 **Spring AI 2.0-M6** + Spring Boot 3.4 + DeepSeek，从第一个对话一路搭到带记忆、RAG、工具调用的完整 AI 应用。
+基于 **Spring AI 2.0-M8** + Spring Boot 3.4 + DeepSeek，从第一个对话一路搭到带记忆、RAG、工具调用的完整 AI 应用。
 
-> ✅ 已在 JDK 21 + Maven 3.9.9 下 `mvn compile` 验证编译通过（Spring AI 2.0.0-M6）。
+> ✅ 已在 JDK 21 + Maven 3.9.9 下 `mvn compile` 验证编译通过（Spring AI 2.0.0-M8）。
 
 ---
 
@@ -12,7 +12,7 @@
 
 - JDK 17+
 - Spring Boot 3.4.1
-- Spring AI 2.0.0-M6（里程碑预览版）
+- Spring AI 2.0.0-M8（里程碑预览版）
 - DeepSeek（对话）+ 本地 Transformers（嵌入，离线零成本）
 
 ---
