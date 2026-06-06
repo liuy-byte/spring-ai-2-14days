@@ -103,26 +103,32 @@ public class CustomerServiceController {
                 images.stream().filter(f -> f != null && !f.isEmpty()).toList();
 
         if (!validImages.isEmpty()) {
-            // 预先取出所有字节（lambda 内不能抛受检异常）
+            // 预先取出所有字节（lambda 内不能抛受检异常）；ContentType 缺省按 image/jpeg 处理
             record MediaItem(String mimeType, byte[] bytes) {}
             List<MediaItem> items = new ArrayList<>();
             for (MultipartFile f : validImages) {
-                items.add(new MediaItem(f.getContentType(), f.getBytes()));
+                String mime = f.getContentType() != null ? f.getContentType() : "image/jpeg";
+                items.add(new MediaItem(mime, f.getBytes()));
             }
-            String answer = visionClient().prompt()
-                    .user(u -> {
-                        u.text(message);
-                        for (MediaItem item : items) {
-                            u.media(MimeTypeUtils.parseMimeType(item.mimeType()),
-                                    new ByteArrayResource(item.bytes()));
-                        }
-                    })
-                    .call().content();
+            try {
+                String answer = visionClient().prompt()
+                        .user(u -> {
+                            u.text(message);
+                            for (MediaItem item : items) {
+                                u.media(MimeTypeUtils.parseMimeType(item.mimeType()),
+                                        new ByteArrayResource(item.bytes()));
+                            }
+                        })
+                        .call().content();
 
-            // 图片对话以文本摘要写入共享记忆，后续文字路径（DeepSeek）可读取上下文
-            chatMemory.add(userId, new UserMessage("【图片消息】" + message));
-            chatMemory.add(userId, new AssistantMessage(answer));
-            return answer;
+                // 图片对话以文本摘要写入共享记忆，后续文字路径（DeepSeek）可读取上下文
+                chatMemory.add(userId, new UserMessage("【图片消息】" + message));
+                chatMemory.add(userId, new AssistantMessage(answer));
+                return answer;
+            } catch (Exception e) {
+                log.error("图片识别失败 user={}", userId, e);
+                return "抱歉，图片暂时无法识别，请描述一下商品问题，我来帮您处理～";
+            }
         }
         return chat(message, userId);
     }
