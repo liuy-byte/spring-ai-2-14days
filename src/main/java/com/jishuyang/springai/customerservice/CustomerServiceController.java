@@ -8,26 +8,33 @@ import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 番外篇·生产加固版智能客服「小慧」。
- * 集成：记忆(Day6) + RAG(Day10) + Tool(Day12) + Advisor(Day7)。
- * 生产特性：容错兜底、token 用量记录、内容安全(敏感词)、会话隔离。
  *
- * 提问前先 POST /day9/ingest 灌入示例知识库。
- * 试一下：/cs/chat?message=你们退货政策几天？&userId=u1
+ * 接口：
+ *   GET  /cs/chat        纯文字对话（DeepSeek，带记忆/RAG/Tool）
+ *   GET  /cs/chat-image  识图对话（MiniMax-M3，固定 sample.png 演示）
+ *   POST /cs/ask         统一入口：有图→MiniMax-M3，无图→DeepSeek
  *
- * 说明：更重的生产特性（记忆落库 JdbcChatMemoryRepository、内容审核 Moderation、
- * Micrometer 指标）需引入额外依赖，本类用配置示例与注释指明落地方式，详见 application.yml。
+ * 启动前：export DEEPSEEK_API_KEY=xxx；识图功能额外需 export MINIMAX_API_KEY=xxx
+ * 先 POST /day9/ingest 灌入示例知识库，再调 /cs/chat 或 /cs/ask。
  */
 @RestController
 @RequestMapping("/cs")
@@ -36,22 +43,26 @@ public class CustomerServiceController {
     private static final Logger log = LoggerFactory.getLogger(CustomerServiceController.class);
 
     private final ChatClient customerService;
+    private final ChatMemory chatMemory;
 
     public CustomerServiceController(ChatClient.Builder builder,
                                      ChatMemory chatMemory,
                                      VectorStore vectorStore) {
+        this.chatMemory = chatMemory;
         this.customerService = builder
                 .defaultSystem("你是电商客服「小慧」，热情简洁，只依据知识库和工具结果回答，绝不编造。")
                 .defaultAdvisors(
-                        MessageChatMemoryAdvisor.builder(chatMemory).build(),   // 记忆
-                        QuestionAnswerAdvisor.builder(vectorStore).build(),     // RAG
-                        new SimpleLoggerAdvisor(),                              // 日志
-                        SafeGuardAdvisor.builder()                              // 内容安全：敏感词
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        QuestionAnswerAdvisor.builder(vectorStore).build(),
+                        new SimpleLoggerAdvisor(),
+                        SafeGuardAdvisor.builder()
                                 .sensitiveWords(List.of("银行卡密码", "身份证号"))
                                 .build())
-                .defaultTools(new OrderTools())                                 // 业务工具
+                .defaultTools(new OrderTools())
                 .build();
     }
+
+    // ── 文字对话 ──────────────────────────────────────────────────────────────
 
     @GetMapping("/chat")
     public String chat(@RequestParam String message,
@@ -59,21 +70,82 @@ public class CustomerServiceController {
         try {
             ChatResponse resp = customerService.prompt()
                     .user(message)
-                    // conversationId 用 userId 隔离每个用户的记忆
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userId))
                     .call()
                     .chatResponse();
-
-            // 记录 token 用量，盯成本（生产接 Micrometer 上报为指标）
             Usage usage = resp.getMetadata().getUsage();
-            log.info("用户 {} 本次 token：prompt={} completion={} total={}",
-                    userId, usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
-
+            log.info("用户 {} token：{}", userId, usage.getTotalTokens());
             return resp.getResult().getOutput().getText();
         } catch (Exception e) {
-            // 容错兜底：模型异常绝不糊到用户脸上，转人工
             log.error("模型调用失败 user={}", userId, e);
             return "抱歉，这个问题我帮你转接人工客服～";
         }
+    }
+
+    // ── 识图对话（演示用，固定 sample.png）────────────────────────────────────
+
+    @GetMapping("/chat-image")
+    public String chatImage(@RequestParam(defaultValue = "这张图里的商品有什么问题？") String message) {
+        return visionClient().prompt()
+                .user(u -> u.text(message)
+                        .media(MimeTypeUtils.IMAGE_PNG, new ClassPathResource("/images/sample.png")))
+                .call()
+                .content();
+    }
+
+    // ── 统一入口：有图→MiniMax-M3，无图→DeepSeek ─────────────────────────────
+
+    @PostMapping("/ask")
+    public String ask(@RequestParam String message,
+                      @RequestParam(defaultValue = "u1") String userId,
+                      @RequestParam(required = false) List<MultipartFile> images) throws IOException {
+        List<MultipartFile> validImages = images == null ? List.of() :
+                images.stream().filter(f -> f != null && !f.isEmpty()).toList();
+
+        if (!validImages.isEmpty()) {
+            // 预先取出所有字节（lambda 内不能抛受检异常）
+            record MediaItem(String mimeType, byte[] bytes) {}
+            List<MediaItem> items = new ArrayList<>();
+            for (MultipartFile f : validImages) {
+                items.add(new MediaItem(f.getContentType(), f.getBytes()));
+            }
+            String answer = visionClient().prompt()
+                    .user(u -> {
+                        u.text(message);
+                        for (MediaItem item : items) {
+                            u.media(MimeTypeUtils.parseMimeType(item.mimeType()),
+                                    new ByteArrayResource(item.bytes()));
+                        }
+                    })
+                    .call().content();
+
+            // 图片对话以文本摘要写入共享记忆，后续文字路径（DeepSeek）可读取上下文
+            chatMemory.add(userId, new UserMessage("【图片消息】" + message));
+            chatMemory.add(userId, new AssistantMessage(answer));
+            return answer;
+        }
+        return chat(message, userId);
+    }
+
+    // ── MiniMax-M3 客户端（懒加载，未配 MINIMAX_API_KEY 时不影响主线）────────
+
+    private volatile ChatClient visionClient;
+
+    private ChatClient visionClient() {
+        if (visionClient == null) {
+            synchronized (this) {
+                if (visionClient == null) {
+                    OpenAiChatModel model = OpenAiChatModel.builder()
+                            .options(OpenAiChatOptions.builder()
+                                    .baseUrl("https://api.minimax.io")
+                                    .apiKey(System.getenv("MINIMAX_API_KEY"))
+                                    .model("MiniMax-M3")
+                                    .build())
+                            .build();
+                    visionClient = ChatClient.create(model);
+                }
+            }
+        }
+        return visionClient;
     }
 }
