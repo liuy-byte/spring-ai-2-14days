@@ -49,6 +49,14 @@
             <artifactId>spring-ai-starter-model-deepseek</artifactId>
         </dependency>
 
+        <!-- 番外篇·多模态客服：MiniMax-M3 走 OpenAI 兼容通道。
+             用 core 模块 spring-ai-openai（非 starter）——只引入 OpenAiChatModel 等类，
+             不带自动配置，不会注册第二个 ChatModel Bean 抢占 ChatClient.Builder，Day1-13 不受影响。 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+
         <!-- 嵌入模型：本地 ONNX Transformers，离线零成本（Day8-11） -->
         <dependency>
             <groupId>org.springframework.ai</groupId>

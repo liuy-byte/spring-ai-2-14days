@@ -53,6 +53,20 @@ mvn spring-boot:run
 
 ---
 
+## 番外篇（连载之外的加餐）
+
+| 主题 | 包 | 试一下 |
+|------|-----|--------|
+| 综合实战 · 生产加固版客服 | `customerservice` | 先 `POST /day9/ingest` → `GET /cs/chat?message=你们退货政策几天？&userId=u1` |
+| 多模态客服 · 看懂用户发的图 | `customerservice` | `export MINIMAX_API_KEY=xxx` + 放 `images/sample.png` → `GET /cs/chat-image?message=这张图里的商品有什么问题？` |
+| Agent 编排 · 5 种 workflow 模式 | `agentic` | `GET /agentic/routing?message=我被重复扣款了`，另有 `/agentic/chain`、`/agentic/orchestrate`、`/agentic/evaluate` |
+
+> 客服番外讲「从 demo 到生产」的加固。容错、token 记录、敏感词、会话隔离是真实可跑代码；更重的特性（记忆落库、Moderation、Micrometer 指标）需引入额外依赖，以配置示例 + 注释呈现，详见 `application.yml` 与公众号文章。
+>
+> 多模态接口 `/cs/chat-image` 用 **MiniMax-M3 走 OpenAI 兼容通道**，代码手动构造 `ChatModel`、不引第二个 starter，故不影响主线 DeepSeek 的自动装配。
+
+---
+
 ## 重要提示（DeepSeek 能力边界）
 
 - **Day5 多模态**：DeepSeek 不支持图像输入。需换视觉模型（gpt-4o / qwen-vl / GLM-4V / Ollama llava）——换对应 starter + 配 key，Media 代码不变；并在 `src/main/resources/images/` 放一张 `sample.png`。

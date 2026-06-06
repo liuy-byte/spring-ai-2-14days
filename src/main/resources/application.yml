@@ -7,7 +7,7 @@ spring:
       # 启动前先 export DEEPSEEK_API_KEY=sk-xxx
       api-key: ${DEEPSEEK_API_KEY}
       chat:
-        model: deepseek-chat        # 通用对话；深度推理用 deepseek-reasoner
+        model: deepseek-v4-pro      # 旗舰版；经济版用 deepseek-v4-flash
         temperature: 0.7
 
     # ===== 嵌入模型 =====
@@ -30,3 +30,29 @@ spring:
 logging:
   level:
     org.springframework.ai: INFO
+
+# ===================================================================
+# 番外篇·生产加固配置示例（默认注释，按需启用；部分需引入额外依赖）
+# ===================================================================
+# 1) 容错：模型抖动时自动重试（spring-ai 内置，取消注释即生效）
+#    spring.ai.retry.max-attempts: 3
+#    spring.ai.retry.backoff.initial-interval: 1s
+#    spring.ai.retry.backoff.multiplier: 2          # 指数退避 1s → 2s → 4s
+#
+# 2) 记忆落库：重启不丢、多实例共享（需引入 JDBC ChatMemory 仓库 starter + 数据源）
+#    spring.ai.chat.memory.repository.jdbc.initialize-schema: always   # 生产建议 never，交给 Flyway
+#
+# 3) 可观测：prompt/回复日志默认关闭，含用户隐私(PII)，勿随手打开
+#    spring.ai.chat.client.observations.log-prompt: false
+#    spring.ai.chat.client.observations.log-completion: false
+#    （再加 spring-boot-starter-actuator + Micrometer，即可上报 QPS/延迟/token 指标）
+#
+# 4) 内容审核 Moderation：DeepSeek 无审核端点，需独立用 OpenAI Moderation
+#    或国内内容安全服务（引入 spring-ai-starter-model-openai 后启用 OpenAiModerationModel）
+#
+# 5) 多模态客服：DeepSeek 不识图，/cs/chat-image 用 MiniMax-M3 走 OpenAI 兼容通道。
+#    依赖 spring-ai-openai（core 模块，非 starter）已在 pom，代码手动构造 ChatModel，
+#    不影响主线 DeepSeek 的自动装配。启用：
+#      export MINIMAX_API_KEY=xxx
+#      src/main/resources/images/ 放一张 sample.png
+#    base-url 填域名根 https://api.minimax.io，Spring AI 自动拼 /v1/chat/completions。
