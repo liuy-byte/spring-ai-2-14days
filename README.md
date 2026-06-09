@@ -55,15 +55,27 @@ mvn spring-boot:run
 
 ## 番外篇（连载之外的加餐）
 
-| 主题 | 包 | 试一下 |
-|------|-----|--------|
-| 综合实战 · 生产加固版客服 | `customerservice` | 先 `POST /day9/ingest` → `GET /cs/chat?message=你们退货政策几天？&userId=u1` |
-| 多模态客服 · 看懂用户发的图 | `customerservice` | `export MINIMAX_API_KEY=xxx` + 放 `images/sample.png` → `GET /cs/chat-image?message=这张图里的商品有什么问题？` |
-| Agent 编排 · 5 种 workflow 模式 | `agentic` | `GET /agentic/routing?message=我被重复扣款了`，另有 `/agentic/chain`、`/agentic/orchestrate`、`/agentic/evaluate` |
+### 综合实战 · 生产加固版客服（`customerservice` 包，HTTP `/cs`）
 
-> 客服番外讲「从 demo 到生产」的加固。容错、token 记录、敏感词、会话隔离是真实可跑代码；更重的特性（记忆落库、Moderation、Micrometer 指标）需引入额外依赖，以配置示例 + 注释呈现，详见 `application.yml` 与公众号文章。
->
-> 多模态接口 `/cs/chat-image` 用 **MiniMax-M3 走 OpenAI 兼容通道**，代码手动构造 `ChatModel`、不引第二个 starter，故不影响主线 DeepSeek 的自动装配。
+| 接口 | 作用 | 试一下 |
+|------|------|--------|
+| `GET /cs/chat` | 纯文字客服：DeepSeek + 记忆 / RAG / Tool / 容错 | 先 `POST /day9/ingest` → `GET /cs/chat?message=你们退货政策几天？&userId=u1` |
+| `GET /cs/chat-image` | 识图演示：MiniMax-M3 读固定 `sample.png` | 放 `src/main/resources/images/sample.png` + `export MINIMAX_API_KEY=xxx` → `GET /cs/chat-image?message=这张图里的商品有什么问题？` |
+| `POST /cs/ask` | 统一入口：有图→MiniMax-M3，无图→DeepSeek，跨模型共享上下文 | `POST /cs/ask` form-data：`message` + 可选 `images`（支持多图） |
+
+> 容错、token 记录、敏感词、会话隔离是真实可跑代码；更重的特性（记忆落库 JDBC/Redis、Moderation 内容审核、Micrometer 指标）需引入额外依赖，文中以配置示例 + 注释呈现，详见公众号文章。识图的 MiniMax-M3 走 OpenAI 兼容通道、懒加载，未配 `MINIMAX_API_KEY` 不影响主线 DeepSeek 的自动装配。
+
+### Agent 编排 · 5 种 workflow 模式（`agentic` 包，HTTP `/agentic`）
+
+| 模式 | 接口 | 试一下 |
+|------|------|--------|
+| ① Chain 链式 | `GET /agentic/chain` | `GET /agentic/chain?message=我买的卷发棒坏了，很生气` |
+| ② Routing 路由 | `GET /agentic/routing` | `GET /agentic/routing?message=我上周被重复扣款了` |
+| ③ Parallelization 并行 | `POST /agentic/parallel` | body 传 JSON 数组：`["卷发棒坏了要退","按钮按不动","怎么开发票"]` |
+| ④ Orchestrator-Workers | `GET /agentic/orchestrate` | `GET /agentic/orchestrate?task=帮我规划一次三天两夜的杭州周末游` |
+| ⑤ Evaluator-Optimizer | `GET /agentic/evaluate` | `GET /agentic/evaluate?task=起草一条退货拒绝话术` |
+
+> 这 5 个 workflow 类都不是框架内置 API，全是 `ChatClient` + Java 控制流（`for` / `if` / 并行流）拼出来的——详见番外篇《Agent 编排：5 种模式》。
 
 ---
 
