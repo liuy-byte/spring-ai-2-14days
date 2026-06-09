@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * Spring AI 2.x 14 天系列配套代码。
- * 公众号「技术洋的编程笔记」。
+ * 公众号「技术洋」。
  */
 @SpringBootApplication
 public class SpringAi14DaysApplication {

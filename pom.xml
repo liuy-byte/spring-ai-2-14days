@@ -15,7 +15,7 @@
     <artifactId>spring-ai-2-14days</artifactId>
     <version>1.0.0</version>
     <name>spring-ai-2-14days</name>
-    <description>公众号「技术洋的编程笔记」Spring AI 2.x 14 天系列配套代码</description>
+    <description>公众号「技术洋」Spring AI 2.x 14 天系列配套代码</description>
 
     <properties>
         <java.version>17</java.version>
